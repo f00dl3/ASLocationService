@@ -7,7 +7,6 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
@@ -15,10 +14,6 @@ import android.widget.Toast;
 import com.google.android.gms.maps.model.LatLng;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 
 /**
  * Created by astump on 11/13/16.
@@ -26,7 +21,7 @@ import java.io.OutputStreamWriter;
 
 public class LocationService extends Service {
 
-    final File locLogFile = new File(Environment.getExternalStorageDirectory(), "asls.log");
+    final public static File locLogFile = new File(SNMPShit.snmpOutPath.toString(), "asls.log");
 
     public static final String BROADCAST_ACTION = "ASLS Poll";
     private static final int POLLINT = 1000 * 60 * 1;
@@ -35,7 +30,7 @@ public class LocationService extends Service {
     public Location previousBestLocation = null;
 
     Intent intent;
-    int count = 0;
+    long count = 0;
 
     @Override
     public void onCreate() {
@@ -44,11 +39,20 @@ public class LocationService extends Service {
     }
 
     @Override
-    public void onStart(Intent intent, int startId) {
+    public void onDestroy() {
+        super.onDestroy();
+        Log.v("STOP_SERVICE", "DONE");
+        locationManager.removeUpdates(listener);
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         listener = new MyLocationListener();
         locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 0, listener);
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 0, listener);
+        Toast.makeText(getApplicationContext(), "ASLS Location Service Started!", Toast.LENGTH_SHORT).show();
+        return START_NOT_STICKY;
     }
 
     @Override
@@ -91,13 +95,6 @@ public class LocationService extends Service {
         return provider1.equals(provider2);
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        Log.v("STOP_SERVICE", "DONE");
-        locationManager.removeUpdates(listener);
-    }
-
     public static Thread performOnBackgroundThread(final Runnable runnable) {
         final Thread t = new Thread() {
             @Override
@@ -114,6 +111,7 @@ public class LocationService extends Service {
     }
 
     public class MyLocationListener implements LocationListener {
+
         public void onLocationChanged(final Location loc) {
             if (isBetterLocation(loc, previousBestLocation)) {
                 count++;
@@ -121,24 +119,27 @@ public class LocationService extends Service {
                 double locLat = loc.getLatitude();
                 double locLon = loc.getLongitude();
                 String locSrc = loc.getProvider();
-                String locationUpdate = "Update: " + count + ", Time: " + locTime + ", Latitude: " + locLat + ", Longitude:" + locLon + ", Source:" + locSrc + ", EndLine\n";
-                try {
-                    FileOutputStream fOut = new FileOutputStream (new File(locLogFile.getAbsolutePath().toString()), true);
-                    OutputStreamWriter osw = new OutputStreamWriter(fOut);
-                    osw.write(locationUpdate);
-                    osw.flush();
-                    osw.close();
-                    Log.i("LocationLogger", "File write attempted.");
-                }
-                catch (FileNotFoundException fnf) { fnf.printStackTrace(); }
-                catch (IOException iox) { iox.printStackTrace(); }
+                double locAlti = loc.getAltitude();
+                double locSpeed = loc.getSpeed();
+                float locBearing = loc.getBearing();
+
+                String locationUpdateString = "Location Update: " + count
+                        + ", Time: " + locTime
+                        + ", Latitude: " + locLat
+                        + ", Longitude: " + locLon
+                        + ", Source: " + locSrc
+                        + ", Altitude: " + locAlti
+                        + ", Speed: " + locSpeed
+                        + ", Bearing: " + locBearing
+                        + ", EndLine\n";
+                SharedMethods.writeOutputToFile(locLogFile, locationUpdateString, "Location Logfile");
                 intent.putExtra("Latitude", locLat);
                 intent.putExtra("Longitude", locLon);
                 intent.putExtra("Provider", locSrc);
                 sendBroadcast(intent);
                 /* Toast.makeText(getApplicationContext(), "ASLS Update: " + locationUpdate, Toast.LENGTH_LONG).show(); */
                 LatLng curLatLon = new LatLng(loc.getLatitude(), loc.getLongitude());
-                Log.i("LocationService.LocationListener", "Location " + locationUpdate);
+                Log.i("LocationService.LocationListener", "Location " + locationUpdateString);
             }
         }
 
