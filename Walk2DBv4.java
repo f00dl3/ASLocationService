@@ -2,6 +2,9 @@
 SNMP Walk -> Database
 Version 4
 Last updated: 2017-12-03
+
+**** Was for build 12. Does not integrate newer features. Bit it shows you where to start ***
+
 */
 
 package jASUtils;
