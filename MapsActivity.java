@@ -1,23 +1,17 @@
 package astump.aslocationservice;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.graphics.Camera;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.support.v4.app.ActivityCompat;
+import android.os.Environment;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.content.Intent;
-import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.View;
 import android.location.Address;
 import android.location.Geocoder;
 import android.widget.Toast;
-import astump.aslocationservice.LocationService;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -26,11 +20,19 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+
+    final File asToolsBaseFolder = SharedMethods.sharedPath;
+
+    int minTimeBetweenUpdates = 2 * 1000;
+    int minDistanceBetweenUpdates = 25;
+    int defaultZoomLevel = 17;
 
     private GoogleMap mMap;
 
@@ -38,8 +40,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        Intent serviceIntent = new Intent(this, LocationService.class);
-        startService(serviceIntent);
+        SharedMethods.makeDir(asToolsBaseFolder);
+        startService(new Intent(this, LocationService.class));
+        startService(new Intent(this, DeviceSensorServices.class));
+        startService(new Intent(this, SNMPShit.class));
+        startService(new Intent(this, CapPhoto.class));
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -51,13 +56,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         LocationManager lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
         LocationListener locationListener = new MyLocationListener();
-        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTimeBetweenUpdates, minDistanceBetweenUpdates, locationListener);
 
         mMap = googleMap;
-        LatLng home = new LatLng(/* Put your home Latitude, Longitude here! */);
+        LatLng home = new LatLng(/* Put your lat lon here!*/);
         mMap.addMarker(new MarkerOptions().position(home).title("Home"));
         mMap.moveCamera(CameraUpdateFactory.newLatLng(home));
-        mMap.animateCamera(CameraUpdateFactory.zoomTo(13));
+        mMap.animateCamera(CameraUpdateFactory.zoomTo(defaultZoomLevel));
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng point) {
@@ -98,7 +103,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 /* Toast.makeText(getBaseContext(), currentLocationString, Toast.LENGTH_SHORT).show(); */
                 mMap.moveCamera(CameraUpdateFactory.newLatLng(curLatLon));
                 mMap.addMarker(new MarkerOptions().position(curLatLon).title("Location"));
-                mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+                mMap.animateCamera(CameraUpdateFactory.zoomTo(defaultZoomLevel));
+
             } else {
                 /* Toast.makeText(getBaseContext(), "No current location!", Toast.LENGTH_SHORT).show(); */
             }
